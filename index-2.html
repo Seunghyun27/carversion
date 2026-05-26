@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>가천대 길잡이 - 네이버 자동차 경로</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&family=Black+Han+Sans&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:rgba(255,255,255,.08);
+      --accent:#03c75a; --accent2:#58a6ff; --warn:#f78166; --text:#e6edf3; --muted:#8b949e; --card-radius:12px;
+    }
+    body { background:var(--bg); color:var(--text); font-family:'Nanum Gothic',sans-serif; min-height:100vh; }
+    header { padding:2rem 1.5rem 1.5rem; border-bottom:1px solid var(--border); background:linear-gradient(180deg,rgba(3,199,90,.08),transparent); text-align:center; }
+    .logo-badge { display:inline-block; font-size:11px; font-weight:800; letter-spacing:.12em; color:var(--accent); background:rgba(3,199,90,.1); border:1px solid rgba(3,199,90,.25); border-radius:20px; padding:4px 14px; margin-bottom:1rem; text-transform:uppercase; }
+    h1 { font-family:'Black Han Sans',sans-serif; font-size:clamp(1.6rem,5vw,2.4rem); line-height:1.2; margin-bottom:.5rem; }
+    h1 span { color:var(--accent); }
+    .sub { font-size:13px; color:var(--muted); }
+    main { max-width:900px; margin:0 auto; padding:1.5rem 1rem 3rem; }
+    .selector-section, .result-card, .legend { background:var(--surface); border:1px solid var(--border); border-radius:var(--card-radius); padding:1.5rem; margin-bottom:1.25rem; }
+    .selector-label, .legend-title { font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:.75rem; }
+    .sel-row { display:grid; grid-template-columns:1fr 44px 1fr; gap:10px; align-items:center; }
+    .sel-wrap { position:relative; }
+    .sel-wrap::after { content:'▾'; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:12px; pointer-events:none; }
+    select { width:100%; appearance:none; background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.65rem 2rem .65rem .9rem; font-family:'Nanum Gothic',sans-serif; font-size:14px; font-weight:800; cursor:pointer; outline:none; }
+    select:focus { border-color:var(--accent); }
+    .swap-btn { width:44px; height:44px; background:var(--surface2); border:1px solid var(--border); border-radius:50%; color:var(--muted); font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; margin:0 auto; }
+    .swap-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .result-card { display:none; animation:fadeIn .3s ease; }
+    .result-card.show { display:block; }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+    .route-header { font-size:13px; color:var(--muted); margin-bottom:1rem; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .route-header strong { color:var(--text); font-size:15px; }
+    .badge { font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; padding:2px 8px; border-radius:20px; }
+    .badge-car { background:rgba(3,199,90,.15); color:var(--accent); border:1px solid rgba(3,199,90,.3); }
+    .badge-hill { background:rgba(247,129,102,.15); color:var(--warn); border:1px solid rgba(247,129,102,.3); display:none; }
+    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:1rem; }
+    .metric { background:var(--surface2); border-radius:8px; padding:1rem 1.1rem; }
+    .metric-label { font-size:11px; color:var(--muted); margin-bottom:4px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .metric-value { font-family:'Black Han Sans',sans-serif; font-size:2rem; color:var(--accent); line-height:1; }
+    .metric-unit { font-family:'Nanum Gothic',sans-serif; font-size:14px; color:var(--muted); font-weight:400; }
+    .tip-box, .error-box { font-size:12px; color:var(--muted); background:rgba(3,199,90,.05); border:1px solid rgba(3,199,90,.15); border-radius:8px; padding:.75rem 1rem; line-height:1.7; }
+    .error-box { display:none; margin-top:.75rem; color:#ffb4a9; background:rgba(247,129,102,.08); border-color:rgba(247,129,102,.25); }
+    .map-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--card-radius); overflow:hidden; margin-bottom:1.25rem; }
+    .map-title { padding:.75rem 1rem; font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px; }
+    .map-title span { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent); }
+    #map { width:100%; height:420px; background:var(--surface2); }
+    .legend-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:8px; }
+    .legend-item { display:flex; align-items:flex-start; gap:8px; font-size:12px; }
+    .legend-dot { width:10px; height:10px; border-radius:50%; margin-top:2px; flex-shrink:0; }
+    .legend-name { color:var(--text); font-weight:800; }
+    .legend-desc { color:var(--muted); font-size:11px; }
+    .same-warn { font-size:13px; color:var(--muted); text-align:center; padding:1rem; display:none; }
+    footer { text-align:center; padding:1.5rem; font-size:11px; color:var(--muted); border-top:1px solid var(--border); }
+    @media (max-width:480px){ .sel-row{grid-template-columns:1fr}.swap-btn{transform:rotate(90deg)} }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo-badge">가천대학교 · 글로벌캠퍼스</div>
+  <h1>가천대 <span>길잡이</span></h1>
+  <p class="sub">네이버지도 기반 건물 간 자동차 경로를 표시합니다</p>
+</header>
+<main>
+  <div class="selector-section">
+    <div class="selector-label">출발지 · 도착지 선택</div>
+    <div class="sel-row">
+      <div class="sel-wrap"><select id="from"></select></div>
+      <button class="swap-btn" id="swapBtn" title="출발·도착 바꾸기">⇄</button>
+      <div class="sel-wrap"><select id="to"></select></div>
+    </div>
+  </div>
+  <div class="same-warn" id="sameWarn">출발지와 도착지가 같습니다.</div>
+  <div class="result-card" id="resultCard">
+    <div class="route-header">
+      <strong id="routeText"></strong>
+      <span class="badge badge-car">자동차 경로</span>
+      <span class="badge badge-hill" id="hillBadge">⛰ 언덕 구간</span>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">예상 시간</div><div class="metric-value"><span id="timeVal">—</span><span class="metric-unit"> 분</span></div></div>
+      <div class="metric"><div class="metric-label">거리</div><div class="metric-value"><span id="distVal">—</span><span class="metric-unit"> m</span></div></div>
+    </div>
+    <div class="tip-box" id="tipText">네이버 Directions 자동차 경로 기준입니다. 캠퍼스 내부 보행로와는 다를 수 있습니다.</div>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+  <div class="map-section">
+    <div class="map-title"><span></span> 실제 길 기반 경로 (네이버지도)</div>
+    <div id="map"></div>
+  </div>
+  <div class="legend">
+    <div class="legend-title">건물 목록</div>
+    <div class="legend-grid" id="legendGrid"></div>
+  </div>
+</main>
+<footer>경로 및 시간은 네이버 Directions 자동차 경로 기준입니다. 실제 도보 이동과 다를 수 있습니다.<br>가천대학교 글로벌캠퍼스 · 경기도 성남시 수정구 성남대로 1342</footer>
+
+<script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=jarzty60tv"></script>
+<script>
+const NAVER_CLIENT_ID = 'jarzty60tv';
+const NAVER_CLIENT_SECRET = 'h0NOfkv6QJQJ1KqiZSiJSF0nicJMaGDNPR8te5OW';
+
+const BUILDINGS = [
+  { id:'vision', name:'비전타워', lat:37.449594, lng:127.127125, color:'#58a6ff', desc:'가천대역 직결 · 학생식당 · 법과대' },
+  { id:'global', name:'글로벌센터', lat:37.451768, lng:127.127392, color:'#a371f7', desc:'영어강의 · G-LAC' },
+  { id:'semi', name:'반도체대학', lat:37.450913, lng:127.127472, color:'#f47067', desc:'화공·반도체 강의' },
+  { id:'bio_nano_u', name:'바이오나노대학', lat:37.452552, lng:127.129012, color:'#56d364', desc:'바이오나노 강의동' },
+  { id:'bio_res', name:'바이오나노연구원', lat:37.449830, lng:127.128088, color:'#79c0ff', desc:'연구 시설' },
+  { id:'eng2', name:'공과대학2', lat:37.449317, lng:127.128412, color:'#8b949e', desc:'공학 강의동' },
+  { id:'gachon', name:'가천관', lat:37.450457, lng:127.129803, color:'#3fb950', desc:'대학본부 · 지하2~지상12층' },
+  { id:'lifelong', name:'평생교육원', lat:37.452698, lng:127.129922, color:'#8b949e', desc:'평생교육 · 행정지원실' },
+  { id:'edu_grad', name:'교육대학원', lat:37.451889, lng:127.131717, color:'#d2a8ff', desc:'대학원 강의동' },
+  { id:'lib', name:'중앙도서관', lat:37.452236, lng:127.132838, color:'#f78166', desc:'헐떡고개 위 · 10~15분 소요' },
+  { id:'student', name:'학생회관', lat:37.453159, lng:127.134447, color:'#e3b341', desc:'학생 편의시설' },
+  { id:'ai', name:'AI관', lat:37.455218, lng:127.133906, color:'#ffa657', desc:'2022년 신축 · IT·AI 강의' },
+  { id:'dorm1', name:'제1학생생활관', lat:37.456415, lng:127.135176, color:'#79c0ff', desc:'기숙사 · 남위례역 도보 가능' }
+];
+const HILL_UPPER = new Set(['lib','student','ai','dorm1']);
+const TIPS = {
+  'global_vision':'비전타워와 글로벌센터는 가까운 구간입니다.',
+  'semi_vision':'비전타워와 반도체대학은 성남대로변에 가까이 있습니다.',
+  'gachon_vision':'가천관~비전타워는 자주 이동하는 구간입니다.',
+  'gachon_lib':'가천관에서 중앙도서관은 경사가 큰 구간입니다.',
+  'ai_gachon':'AI관에서 가천관은 캠퍼스 상단에서 내려오는 구간입니다.',
+  'ai_vision':'AI관에서 비전타워는 캠퍼스를 길게 가로지르는 구간입니다.',
+  'ai_dorm1':'AI관과 제1학생생활관은 상단 구역에 가까이 위치합니다.',
+  'lib_student':'중앙도서관과 학생회관은 캠퍼스 상단 구역에 있습니다.',
+  'dorm1_vision':'기숙사에서 비전타워까지는 긴 구간입니다.'
+};
+function getKey(a,b){ return [a,b].sort().join('_'); }
+function isHill(a,b){ return HILL_UPPER.has(a)!==HILL_UPPER.has(b); }
+
+const fromSel = document.getElementById('from');
+const toSel = document.getElementById('to');
+BUILDINGS.forEach(b=>{
+  [fromSel,toSel].forEach(sel=>{
+    const opt = document.createElement('option'); opt.value=b.id; opt.textContent=b.name; sel.appendChild(opt);
+  });
+});
+toSel.selectedIndex = 6;
+
+let map, routePolyline, markers = {};
+function initMap(){
+  map = new naver.maps.Map('map', {
+    center: new naver.maps.LatLng(37.4522,127.1312),
+    zoom: 16,
+    minZoom: 14,
+    zoomControl: true,
+    zoomControlOptions: { position: naver.maps.Position.TOP_RIGHT }
+  });
+  BUILDINGS.forEach(b=>{
+    const marker = new naver.maps.Marker({
+      position: new naver.maps.LatLng(b.lat,b.lng),
+      map,
+      title: b.name
+    });
+    const info = new naver.maps.InfoWindow({ content:`<div style="padding:7px 10px;font-size:12px;white-space:nowrap;font-family:sans-serif"><b>${b.name}</b><br>${b.desc}</div>` });
+    naver.maps.Event.addListener(marker,'click',()=> info.open(map, marker));
+    markers[b.id]=marker;
+  });
+  update();
+}
+function clearRoute(){
+  if(routePolyline){ routePolyline.setMap(null); routePolyline=null; }
+}
+function drawPolyline(coords){
+  clearRoute();
+  const path = coords.map(p => new naver.maps.LatLng(p[1], p[0]));
+  routePolyline = new naver.maps.Polyline({
+    map,
+    path,
+    strokeColor:'#03c75a',
+    strokeOpacity:.9,
+    strokeWeight:6,
+    strokeLineCap:'round',
+    strokeLineJoin:'round'
+  });
+  const bounds = new naver.maps.LatLngBounds();
+  path.forEach(p=>bounds.extend(p));
+  map.fitBounds(bounds, { top:70, right:70, bottom:70, left:70 });
+}
+function fallbackLine(fromB,toB){
+  drawPolyline([[fromB.lng,fromB.lat],[toB.lng,toB.lat]]);
+  const meters = calcDistance(fromB.lat,fromB.lng,toB.lat,toB.lng);
+  updateMetrics(Math.round(meters), Math.max(1,Math.round(meters/250)), fromB, toB);
+}
+function calcDistance(lat1,lng1,lat2,lng2){
+  const R=6371000, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+async function requestNaverDriving(fromB,toB){
+  const errorBox = document.getElementById('errorBox');
+  errorBox.style.display='none'; errorBox.textContent='';
+  const start = `${fromB.lng},${fromB.lat}`;
+  const goal = `${toB.lng},${toB.lat}`;
+  const url = `https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving?start=${encodeURIComponent(start)}&goal=${encodeURIComponent(goal)}&option=trafast`;
+  try{
+    const res = await fetch(url, {
+      headers: {
+        'X-NCP-APIGW-API-KEY-ID': NAVER_CLIENT_ID,
+        'X-NCP-APIGW-API-KEY': NAVER_CLIENT_SECRET
+      }
+    });
+    const data = await res.json();
+    if(!res.ok || data.code !== 0 || !data.route || !data.route.trafast || !data.route.trafast[0]){
+      throw new Error(`Directions 실패: ${data.message || data.errorMessage || res.status}`);
+    }
+    const route = data.route.trafast[0];
+    drawPolyline(route.path);
+    const distance = route.summary.distance;
+    const durationMin = Math.max(1, Math.round(route.summary.duration / 1000 / 60));
+    updateMetrics(distance, durationMin, fromB, toB);
+  }catch(err){
+    errorBox.style.display='block';
+    errorBox.textContent = `네이버 Directions 요청 실패: ${err.message}. 브라우저 CORS 또는 API 권한 문제일 수 있어 직선 경로로 표시합니다.`;
+    fallbackLine(fromB,toB);
+  }
+}
+function updateMetrics(meters, minutes, fromB, toB){
+  document.getElementById('distVal').textContent = Math.round(meters).toLocaleString();
+  document.getElementById('timeVal').textContent = minutes;
+  const hill = isHill(fromB.id,toB.id);
+  document.getElementById('hillBadge').style.display = hill ? 'inline-block' : 'none';
+  const key = getKey(fromB.id,toB.id);
+  document.getElementById('tipText').textContent = TIPS[key] || (hill ? '상·하단 캠퍼스를 오가는 구간입니다. 실제 도보 이동 시 경사가 있을 수 있습니다.' : '네이버 자동차 경로 기준입니다. 캠퍼스 내부 도보 경로와 다를 수 있습니다.');
+}
+function update(){
+  const fromId=fromSel.value, toId=toSel.value;
+  const card=document.getElementById('resultCard'), warn=document.getElementById('sameWarn');
+  if(fromId===toId){ card.classList.remove('show'); warn.style.display='block'; clearRoute(); return; }
+  warn.style.display='none';
+  const fromB=BUILDINGS.find(b=>b.id===fromId), toB=BUILDINGS.find(b=>b.id===toId);
+  document.getElementById('routeText').textContent = `${fromB.name} → ${toB.name}`;
+  card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
+  Object.entries(markers).forEach(([id,m])=>{
+    m.setZIndex((id===fromId||id===toId)?100:1);
+    m.setAnimation(null);
+  });
+  if(markers[fromId]) markers[fromId].setAnimation(naver.maps.Animation.BOUNCE);
+  if(markers[toId]) markers[toId].setAnimation(naver.maps.Animation.BOUNCE);
+  requestNaverDriving(fromB,toB);
+}
+
+document.getElementById('swapBtn').addEventListener('click',()=>{ const t=fromSel.value; fromSel.value=toSel.value; toSel.value=t; update(); });
+fromSel.addEventListener('change',update); toSel.addEventListener('change',update);
+const grid=document.getElementById('legendGrid');
+BUILDINGS.forEach(b=>{
+  const item=document.createElement('div'); item.className='legend-item';
+  item.innerHTML=`<span class="legend-dot" style="background:${b.color}"></span><div><div class="legend-name">${b.name}</div><div class="legend-desc">${b.desc}</div></div>`;
+  grid.appendChild(item);
+});
+window.addEventListener('load', initMap);
+</script>
+</body>
+</html>
